@@ -1,4 +1,4 @@
-# BMad Method & BMad Core
+# BMad Method & BMad Core (with Beads integration)
 
 [![Stable Version](https://img.shields.io/npm/v/bmad-method?color=blue&label=stable)](https://www.npmjs.com/package/bmad-method)
 [![Alpha Version](https://img.shields.io/npm/v/bmad-method/alpha?color=orange&label=alpha)](https://www.npmjs.com/package/bmad-method)
@@ -38,7 +38,7 @@
 > - **Beads is mandatory** — BMAD core workflows require `bd` CLI to function. The installer provisions Beads unconditionally and will fail if provisioning is unsuccessful.
 > - **bmad-beads module is required** — The bmad-beads module is automatically selected and cannot be deselected during installation. It provides essential agents and workflows for Beads integration.
 > - **Always provisioned** — `npm install @beads/bd` runs automatically during every BMAD installation (not conditional on module selection)
-> - **Source of truth shifted** — Task status lives in Beads, not markdown checkboxes
+> - **Source of truth shifted** — Beads is the primary source of truth for task status; markdown checkboxes serve as fallback/reference
 > - **Agents updated** — SM, Dev, and Quick Flow agents use Beads for work discovery
 > - **New conventions** — See `_bmad/bmm/data/beads-conventions.md` after installation
 > - **Workflow guards** — Core implementation workflows (dev-story, create-story, code-review) include preflight checks and will halt if Beads is unavailable
