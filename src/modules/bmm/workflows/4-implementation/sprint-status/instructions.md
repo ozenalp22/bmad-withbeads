@@ -4,11 +4,26 @@
 <critical>You MUST have already loaded and processed: {project-root}/\_bmad/bmm/workflows/4-implementation/sprint-status/workflow.yaml</critical>
 <critical>Modes: interactive (default), validate, data</critical>
 <critical>⚠️ ABSOLUTELY NO TIME ESTIMATES. Do NOT mention hours, days, weeks, or timelines.</critical>
+<critical>🔧 BEADS IS THE SOURCE OF TRUTH - Query Beads first, use sprint-status.yaml as fallback only</critical>
 
 <workflow>
 
-<step n="0" goal="Determine execution mode">
+<step n="0" goal="Determine execution mode and verify Beads">
   <action>Set mode = {{mode}} if provided by caller; otherwise mode = "interactive"</action>
+
+<action>Verify Beads CLI is available:</action>
+
+```bash
+_bmad/bin/bd version
+```
+
+  <check if="bd not available">
+    <output>⚠️ Beads CLI not available. Falling back to sprint-status.yaml only.</output>
+    <action>Set beads_available = false</action>
+  </check>
+  <check if="bd available">
+    <action>Set beads_available = true</action>
+  </check>
 
   <check if="mode == data">
     <action>Jump to Step 20</action>
@@ -23,28 +38,57 @@
   </check>
 </step>
 
-<step n="1" goal="Locate sprint status file">
-  <action>Try {sprint_status_file}</action>
-  <check if="file not found">
-    <output>❌ sprint-status.yaml not found.
-Run `/bmad:bmm:workflows:sprint-planning` to generate it, then rerun sprint-status.</output>
-    <action>Exit workflow</action>
+<step n="1" goal="Query Beads for current state (primary) or locate sprint status file (fallback)">
+  <check if="beads_available == true">
+    <action>Query Beads for all epics and stories:</action>
+    ```bash
+    _bmad/bin/bd list --json --type epic
+    _bmad/bin/bd list --json --label "bmad:story"
+    _bmad/bin/bd ready --json
+    ```
+    <action>Continue to Step 2 (Beads mode)</action>
   </check>
-  <action>Continue to Step 2</action>
+
+  <check if="beads_available == false">
+    <action>Try {sprint_status_file}</action>
+    <check if="file not found">
+      <output>❌ Beads not available AND sprint-status.yaml not found.
+Run BMAD installer to provision Beads, then run `/bmad:bmm:workflows:sprint-planning`.</output>
+      <action>Exit workflow</action>
+    </check>
+    <action>Continue to Step 2 (YAML fallback mode)</action>
+  </check>
 </step>
 
-<step n="2" goal="Read and parse sprint-status.yaml">
-  <action>Read the FULL file: {sprint_status_file}</action>
-  <action>Parse fields: generated, project, project_key, tracking_system, story_location</action>
-  <action>Parse development_status map. Classify keys:</action>
-  - Epics: keys starting with "epic-" (and not ending with "-retrospective")
-  - Retrospectives: keys ending with "-retrospective"
-  - Stories: everything else (e.g., 1-2-login-form)
-  <action>Map legacy story status "drafted" → "ready-for-dev"</action>
-  <action>Count story statuses: backlog, ready-for-dev, in-progress, review, done</action>
-  <action>Map legacy epic status "contexted" → "in-progress"</action>
-  <action>Count epic statuses: backlog, in-progress, done</action>
-  <action>Count retrospective statuses: optional, done</action>
+<step n="2" goal="Parse status from Beads or sprint-status.yaml">
+  <check if="beads_available == true">
+    <action>Parse Beads JSON output to extract:</action>
+    - Epics: issues with type=epic
+    - Stories: issues with label "bmad:story"
+    - Status from `bmad:stage:*` labels:
+      - `bmad:stage:backlog` → backlog
+      - `bmad:stage:ready-for-dev` → ready-for-dev
+      - `bmad:stage:in-progress` → in-progress
+      - `bmad:stage:review` → review
+      - `bmad:stage:done` or status=closed → done
+    <action>Count story statuses: backlog, ready-for-dev, in-progress, review, done</action>
+    <action>Count epic statuses: backlog, in-progress, done</action>
+    <action>Retrospectives: check sprint-status.yaml if exists, otherwise assume optional</action>
+  </check>
+
+  <check if="beads_available == false">
+    <action>Read the FULL file: {sprint_status_file}</action>
+    <action>Parse fields: generated, project, project_key, tracking_system, story_location</action>
+    <action>Parse development_status map. Classify keys:</action>
+    - Epics: keys starting with "epic-" (and not ending with "-retrospective")
+    - Retrospectives: keys ending with "-retrospective"
+    - Stories: everything else (e.g., 1-2-login-form)
+    <action>Map legacy story status "drafted" → "ready-for-dev"</action>
+    <action>Count story statuses: backlog, ready-for-dev, in-progress, review, done</action>
+    <action>Map legacy epic status "contexted" → "in-progress"</action>
+    <action>Count epic statuses: backlog, in-progress, done</action>
+    <action>Count retrospective statuses: optional, done</action>
+  </check>
 
 <action>Validate all statuses against known values:</action>
 
@@ -89,15 +133,32 @@ Enter corrections (e.g., "1=in-progress, 2=backlog") or "skip" to continue witho
   </step>
 
 <step n="3" goal="Select next action recommendation">
-  <action>Pick the next recommended workflow using priority:</action>
-  <note>When selecting "first" story: sort by epic number, then story number (e.g., 1-1 before 1-2 before 2-1)</note>
-  1. If any story status == in-progress → recommend `dev-story` for the first in-progress story
-  2. Else if any story status == review → recommend `code-review` for the first review story
-  3. Else if any story status == ready-for-dev → recommend `dev-story`
-  4. Else if any story status == backlog → recommend `create-story`
-  5. Else if any retrospective status == optional → recommend `retrospective`
-  6. Else → All implementation items done; suggest `workflow-status` to plan next phase
-  <action>Store selected recommendation as: next_story_id, next_workflow_id, next_agent (SM/DEV as appropriate)</action>
+  <check if="beads_available == true">
+    <action>Use Beads ready command to find unblocked work:</action>
+    ```bash
+    _bmad/bin/bd ready --json --label "bmad:story"
+    ```
+    <action>Filter by stage labels to determine recommendation:</action>
+    1. If any story has label `bmad:stage:in-progress` → recommend `dev-story` (continue work)
+    2. Else if any story has label `bmad:stage:review` → recommend `code-review`
+    3. Else if `bd ready` returns stories with `bmad:stage:ready-for-dev` → recommend `dev-story` for first ready story
+    4. Else if any story has label `bmad:stage:backlog` → recommend `create-story`
+    5. Else if any retrospective status == optional → recommend `retrospective`
+    6. Else → All implementation items done; suggest `workflow-status` to plan next phase
+    <action>Store: next_story_id (Beads ID), next_workflow_id, next_agent</action>
+  </check>
+
+  <check if="beads_available == false">
+    <action>Pick the next recommended workflow using priority:</action>
+    <note>When selecting "first" story: sort by epic number, then story number (e.g., 1-1 before 1-2 before 2-1)</note>
+    1. If any story status == in-progress → recommend `dev-story` for the first in-progress story
+    2. Else if any story status == review → recommend `code-review` for the first review story
+    3. Else if any story status == ready-for-dev → recommend `dev-story`
+    4. Else if any story status == backlog → recommend `create-story`
+    5. Else if any retrospective status == optional → recommend `retrospective`
+    6. Else → All implementation items done; suggest `workflow-status` to plan next phase
+    <action>Store selected recommendation as: next_story_id, next_workflow_id, next_agent (SM/DEV as appropriate)</action>
+  </check>
 </step>
 
 <step n="4" goal="Display summary">
@@ -105,12 +166,16 @@ Enter corrections (e.g., "1=in-progress, 2=backlog") or "skip" to continue witho
 ## 📊 Sprint Status
 
 - Project: {{project}} ({{project_key}})
-- Tracking: {{tracking_system}}
-- Status file: {sprint_status_file}
+- Tracking: {{#if beads_available}}**Beads** (source of truth){{else}}sprint-status.yaml (Beads unavailable){{/if}}
+- {{#if beads_available}}Beads DB: `.beads/issues.jsonl`{{else}}Status file: {sprint_status_file}{{/if}}
 
 **Stories:** backlog {{count_backlog}}, ready-for-dev {{count_ready}}, in-progress {{count_in_progress}}, review {{count_review}}, done {{count_done}}
 
 **Epics:** backlog {{epic_backlog}}, in-progress {{epic_in_progress}}, done {{epic_done}}
+
+{{#if beads_available}}
+**Ready Work (unblocked):** `_bmad/bin/bd ready --label "bmad:stage:ready-for-dev"`
+{{/if}}
 
 **Next Recommendation:** /bmad:bmm:workflows:{{next_workflow_id}} ({{next_story_id}})
 

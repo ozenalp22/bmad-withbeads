@@ -10,6 +10,65 @@
 
 <div align="center">
 
+## 🔀 Fork Notice: BMAD + Beads Integration
+
+**This is a fork of [BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD) with deep integration of [Beads](https://github.com/steveyegge/beads)** — Steve Yegge's distributed, git-backed issue tracker designed specifically for AI agents.
+
+</div>
+
+### What is Beads?
+
+[Beads](https://github.com/steveyegge/beads) is a lightweight, dependency-aware issue tracker that lives in your git repository. Unlike traditional issue trackers (Jira, Linear, GitHub Issues), Beads is optimized for AI agents:
+
+- **Git-native**: Issues are stored in `.beads/issues.jsonl` and sync with your code
+- **Dependency-aware**: `bd ready` shows only unblocked work items
+- **Hierarchical**: Parent-child relationships for epic → story → task → subtask
+- **AI-optimized**: JSON output, simple CLI, perfect for LLM tool use
+
+### Why This Fork?
+
+BMAD Method is powerful for AI-driven development, but its task tracking relied on markdown checkboxes and YAML files — which are stateless between AI sessions. **Beads solves this** by providing persistent, dependency-aware task tracking that AI agents can query and update.
+
+**Key Integration Points:**
+
+| BMAD Phase                  | Beads Integration                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| **Phase 3: Solutioning**    | Epic/story creation automatically generates Beads issues with sequential blockers |
+| **Phase 4: Implementation** | `bd ready` drives work discovery; `bd close` marks completion                     |
+| **Code Review**             | High/medium findings create blocking dependencies, preventing story closure       |
+
+### What Changed?
+
+- **Beads is now mandatory** — BMAD workflows require `bd` CLI to function
+- **Installer provisions Beads** — `npm install @beads/bd` runs automatically during setup
+- **Source of truth shifted** — Task status lives in Beads, not markdown checkboxes
+- **Agents updated** — SM, Dev, and Quick Flow agents use Beads for work discovery
+- **New conventions** — See `_bmad/bmm/data/beads-conventions.md` after installation
+
+### Quick Start (This Fork)
+
+```bash
+# Install this fork with Beads integration
+npx bmad-method@alpha install
+
+# Beads CLI is provisioned automatically to _bmad/bin/bd
+# Verify it works:
+_bmad/bin/bd version
+
+# Find your next ready work item:
+_bmad/bin/bd ready
+```
+
+### Learn More
+
+- **[Beads GitHub](https://github.com/steveyegge/beads)** — Full documentation for the `bd` CLI
+- **[Integration Details](./docs/beads-integration/20251219-beads-integration-results.md)** — Complete technical documentation
+- **[Beads Conventions](./src/modules/bmm/data/beads-conventions.md)** — Labels, hierarchy, and workflow rules
+
+---
+
+<div align="center">
+
 ## 🎉 NEW: BMAD V6 Installer - Create & Share Custom Content!
 
 The completely revamped **BMAD V6 installer** now includes built-in support for creating, installing, and sharing custom modules, agents, workflows, templates, and tools! Build your own AI solutions or share them with your team - and real soon, with the whole BMad Community througha verified community sharing portal!

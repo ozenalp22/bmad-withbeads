@@ -23,7 +23,17 @@ epicsTemplate: '{workflow_path}/templates/epics-template.md'
 
 ## STEP GOAL:
 
-To generate all epics with their stories based on the approved epics_list, following the template structure exactly.
+To generate all epics with their stories based on the approved epics_list, following the template structure exactly. **Each epic and story will also be created as Beads issues** with appropriate hierarchy and dependencies.
+
+## BEADS INTEGRATION (REQUIRED):
+
+Before proceeding, verify Beads is available:
+
+```bash
+_bmad/bin/bd version
+```
+
+If this fails, HALT and inform user to run the BMAD installer.
 
 ## MANDATORY EXECUTION RULES (READ FIRST):
 
@@ -137,16 +147,36 @@ _Epic 2: Content Creation_
 
 For each epic in the approved epics_list:
 
-#### A. Epic Overview
+#### A. Create Beads Epic Issue
+
+First, create the Beads epic issue:
+
+```bash
+_bmad/bin/bd create "Epic: {epic_title}" \
+  --type epic \
+  --label "bmad:stage:backlog"
+```
+
+Record the Beads Epic ID (e.g., `proj-a3f8`) for use when creating child stories.
+
+**Sequential Epic Blockers:** If this is NOT the first epic, add a blocker:
+
+```bash
+# Epic N is blocked by Epic N-1 (ensures epics are worked in order)
+_bmad/bin/bd dep add {this_epic_id} {previous_epic_id} --type blocks
+```
+
+#### B. Epic Overview
 
 Display:
 
 - Epic number and title
+- **Beads Epic ID** (from step A)
 - Epic goal statement
 - FRs covered by this epic
 - Any NFRs or additional requirements relevant
 
-#### B. Story Breakdown
+#### C. Story Breakdown
 
 Work with user to break down the epic into stories:
 
@@ -154,7 +184,7 @@ Work with user to break down the epic into stories:
 - Ensure logical flow within the epic
 - Size stories appropriately
 
-#### C. Generate Each Story
+#### D. Generate Each Story
 
 For each story in the epic:
 
@@ -169,7 +199,7 @@ For each story in the epic:
 - Include edge cases and error conditions
 - Reference specific requirements when applicable
 
-#### D. Collaborative Review
+#### E. Collaborative Review
 
 After writing each story:
 
@@ -178,21 +208,45 @@ After writing each story:
 - "Is the scope appropriate for a single dev session?"
 - "Are the acceptance criteria complete and testable?"
 
-#### E. Append to Document
+#### E. Create Beads Issue for Story
+
+When story is approved, create the Beads issue:
+
+```bash
+# Create story issue as child of epic
+_bmad/bin/bd create "{story_title}" \
+  --parent {epic_beads_id} \
+  --type task \
+  --label "bmad:story" \
+  --label "bmad:stage:backlog"
+```
+
+**Sequential Blockers:** If this is NOT the first story in the epic, add a blocker so stories are worked in order:
+
+```bash
+# Story N.M is blocked by Story N.(M-1)
+_bmad/bin/bd dep add {this_story_id} {previous_story_id} --type blocks
+```
+
+Record the Beads Story ID (e.g., `proj-a3f8.1`) for inclusion in the document.
+
+#### F. Append to Document
 
 When story is approved:
 
 - Append it to {outputFile} following template structure
 - Use correct numbering (Epic N, Story M)
+- **Include Beads Story ID** in the story header (e.g., `### Story 1.1: User Login [proj-a3f8.1]`)
 - Maintain proper markdown formatting
 
 ### 4. Epic Completion
 
 After all stories for an epic are complete:
 
-- Display epic summary
-- Show count of stories created
+- Display epic summary with **Beads Epic ID**
+- Show count of stories created with their **Beads Story IDs**
 - Verify all FRs for the epic are covered
+- Confirm Beads issues created: `_bmad/bin/bd list --parent {epic_beads_id} --json`
 - Get user confirmation to proceed to next epic
 
 ### 5. Repeat for All Epics
@@ -259,6 +313,9 @@ ONLY WHEN [C continue option] is selected and [all epics and stories saved to do
 - Stories appropriately sized
 - Acceptance criteria are specific and testable
 - Document is complete and ready for development
+- **Beads epic/story issues created with correct hierarchy**
+- **Sequential blockers established between stories**
+- **Beads IDs recorded in document**
 
 ### ❌ SYSTEM FAILURE:
 
@@ -267,5 +324,7 @@ ONLY WHEN [C continue option] is selected and [all epics and stories saved to do
 - Stories too large or unclear
 - Missing acceptance criteria
 - Not following proper formatting
+- **Beads issues not created**
+- **Missing Beads IDs in document**
 
 **Master Rule:** Skipping steps, optimizing sequences, or not following exact instructions is FORBIDDEN and constitutes SYSTEM FAILURE.

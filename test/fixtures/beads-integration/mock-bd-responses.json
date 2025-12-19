@@ -1,0 +1,174 @@
+{
+  "version": {
+    "output": "bd version 0.25.0",
+    "exitCode": 0
+  },
+  "list_epics": {
+    "command": "bd list --json --type epic",
+    "output": [
+      {
+        "id": "proj-a3f8",
+        "title": "Epic: User Authentication",
+        "type": "epic",
+        "status": "open",
+        "labels": ["bmad:stage:in-progress"],
+        "created_at": "2025-01-15T10:00:00Z"
+      },
+      {
+        "id": "proj-b2c9",
+        "title": "Epic: Content Management",
+        "type": "epic",
+        "status": "open",
+        "labels": ["bmad:stage:backlog"],
+        "created_at": "2025-01-15T10:01:00Z"
+      }
+    ]
+  },
+  "list_stories": {
+    "command": "bd list --json --label bmad:story",
+    "output": [
+      {
+        "id": "proj-a3f8.1",
+        "title": "User Login",
+        "type": "task",
+        "status": "closed",
+        "labels": ["bmad:story", "bmad:stage:done"],
+        "parent_id": "proj-a3f8",
+        "created_at": "2025-01-15T10:02:00Z"
+      },
+      {
+        "id": "proj-a3f8.2",
+        "title": "User Registration",
+        "type": "task",
+        "status": "open",
+        "labels": ["bmad:story", "bmad:stage:ready-for-dev"],
+        "parent_id": "proj-a3f8",
+        "created_at": "2025-01-15T10:03:00Z"
+      },
+      {
+        "id": "proj-a3f8.3",
+        "title": "Password Reset",
+        "type": "task",
+        "status": "open",
+        "labels": ["bmad:story", "bmad:stage:backlog"],
+        "parent_id": "proj-a3f8",
+        "created_at": "2025-01-15T10:04:00Z"
+      }
+    ]
+  },
+  "ready_stories": {
+    "command": "bd ready --json --label bmad:story --label bmad:stage:ready-for-dev",
+    "output": [
+      {
+        "id": "proj-a3f8.2",
+        "title": "User Registration",
+        "type": "task",
+        "status": "open",
+        "labels": ["bmad:story", "bmad:stage:ready-for-dev"],
+        "parent_id": "proj-a3f8"
+      }
+    ]
+  },
+  "story_tasks": {
+    "command": "bd list --json --parent proj-a3f8.2",
+    "output": [
+      {
+        "id": "proj-a3f8.2.1",
+        "title": "Create registration form component",
+        "type": "task",
+        "status": "open",
+        "labels": ["bmad:task", "bmad:stage:backlog"],
+        "parent_id": "proj-a3f8.2"
+      },
+      {
+        "id": "proj-a3f8.2.2",
+        "title": "Add form validation",
+        "type": "task",
+        "status": "open",
+        "labels": ["bmad:task", "bmad:stage:backlog"],
+        "parent_id": "proj-a3f8.2"
+      },
+      {
+        "id": "proj-a3f8.2.3",
+        "title": "Implement API endpoint",
+        "type": "task",
+        "status": "open",
+        "labels": ["bmad:task", "bmad:stage:backlog"],
+        "parent_id": "proj-a3f8.2"
+      }
+    ]
+  },
+  "ready_tasks": {
+    "command": "bd ready --json --parent proj-a3f8.2",
+    "output": [
+      {
+        "id": "proj-a3f8.2.1",
+        "title": "Create registration form component",
+        "type": "task",
+        "status": "open",
+        "labels": ["bmad:task", "bmad:stage:backlog"],
+        "parent_id": "proj-a3f8.2"
+      }
+    ],
+    "notes": "Only first task is ready because task 2 is blocked by task 1"
+  },
+  "show_story": {
+    "command": "bd show proj-a3f8.2 --json",
+    "output": {
+      "id": "proj-a3f8.2",
+      "title": "User Registration",
+      "type": "task",
+      "status": "open",
+      "labels": ["bmad:story", "bmad:stage:ready-for-dev"],
+      "parent_id": "proj-a3f8",
+      "description": "As a new user, I want to register an account so that I can access the application.",
+      "created_at": "2025-01-15T10:03:00Z",
+      "updated_at": "2025-01-16T14:30:00Z"
+    }
+  },
+  "dep_list_blocks": {
+    "command": "bd dep list proj-a3f8.2 --type blocks --json",
+    "output": [],
+    "notes": "No blocking dependencies on this story (review findings would appear here)"
+  },
+  "dep_list_blocks_with_findings": {
+    "command": "bd dep list proj-a3f8.1 --type blocks --json",
+    "output": [
+      {
+        "id": "proj-a3f8.1.review-1",
+        "title": "Fix: SQL injection in login query",
+        "type": "bug",
+        "status": "open",
+        "labels": ["bmad:review-finding", "bmad:severity:high"],
+        "parent_id": "proj-a3f8.1"
+      }
+    ],
+    "notes": "Story blocked by unresolved review finding"
+  },
+  "create_issue": {
+    "command": "bd create \"New Task\" --parent proj-a3f8.2 --type task --label bmad:task",
+    "output": "Created issue: proj-a3f8.2.4",
+    "exitCode": 0
+  },
+  "close_task": {
+    "command": "bd close proj-a3f8.2.1",
+    "output": "Closed issue: proj-a3f8.2.1",
+    "exitCode": 0
+  },
+  "add_blocker": {
+    "command": "bd dep add proj-a3f8.2.2 proj-a3f8.2.1 --type blocks",
+    "output": "Added dependency: proj-a3f8.2.1 blocks proj-a3f8.2.2",
+    "exitCode": 0
+  },
+  "label_add": {
+    "command": "bd label add proj-a3f8.2 bmad:stage:in-progress",
+    "output": "Added label: bmad:stage:in-progress",
+    "exitCode": 0
+  },
+  "label_remove": {
+    "command": "bd label remove proj-a3f8.2 bmad:stage:ready-for-dev",
+    "output": "Removed label: bmad:stage:ready-for-dev",
+    "exitCode": 0
+  }
+}
+

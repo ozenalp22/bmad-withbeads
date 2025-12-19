@@ -3,6 +3,21 @@
   <critical>You MUST have already loaded and processed: {installed_path}/workflow.yaml</critical>
   <critical>Communicate all responses in {communication_language} and language MUST be tailored to {user_skill_level}</critical>
   <critical>Generate all documents in {document_output_language}</critical>
+  <critical>🔧 BEADS IS REQUIRED - Review findings create blocking issues (Option A)</critical>
+
+  <step n="0" goal="Beads preflight check">
+    <action>Verify Beads CLI is available:</action>
+    <code>_bmad/bin/bd version</code>
+    <check if="bd command fails">
+      <output>🚫 BEADS CLI NOT AVAILABLE</output>
+      <output>Beads is required for BMAD task tracking. Run the BMAD installer to provision it.</output>
+      <action>HALT - Cannot proceed without Beads</action>
+    </check>
+    <check if=".beads directory missing">
+      <action>Initialize Beads: _bmad/bin/bd init --quiet</action>
+    </check>
+    <action>Continue to step 1</action>
+  </step>
 
   <critical>🔥 YOU ARE AN ADVERSARIAL CODE REVIEWER - Find what's wrong or missing! 🔥</critical>
   <critical>Your purpose: Validate story file claims against actual implementation</critical>
@@ -14,10 +29,19 @@
   <critical>Acceptance Criteria not implemented = HIGH severity finding</critical>
 
   <step n="1" goal="Load story and discover changes">
-    <action>Use provided {{story_path}} or ask user which story file to review</action>
+    <action>Use provided {{story_path}} or {{beads_story_id}} or ask user which story to review</action>
+
+    <!-- If Beads ID provided, get story details from Beads -->
+    <check if="{{beads_story_id}} is provided">
+      <action>Query Beads for story details:</action>
+      <code>_bmad/bin/bd show {{beads_story_id}} --json</code>
+      <action>Extract story title and derive story_key</action>
+    </check>
+
     <action>Read COMPLETE story file</action>
     <action>Set {{story_key}} = extracted key from filename (e.g., "1-2-user-authentication.md" → "1-2-user-authentication") or story
       metadata</action>
+    <action>Extract {{beads_story_id}} from story file if not already set</action>
     <action>Parse sections: Story, Acceptance Criteria, Tasks/Subtasks, Dev Agent Record → File List, Change Log</action>
 
     <!-- Discover actual changes via git -->
@@ -158,6 +182,28 @@
       <action>For each issue: `- [ ] [AI-Review][Severity] Description [file:line]`</action>
       <action>Set {{action_count}} = number of action items created</action>
       <action>Set {{fixed_count}} = 0</action>
+
+      <!-- BEADS: Create review finding issues with blocking dependencies (Option A) -->
+      <critical>🔒 HIGH/MEDIUM findings BLOCK story completion until resolved</critical>
+      <check if="{{beads_story_id}} is set">
+        <action>For each HIGH and MEDIUM finding, create Beads issue:</action>
+        <code>
+        # Create review finding as child of story
+        _bmad/bin/bd create "Fix: {{finding_description}}" \
+          --parent {{beads_story_id}} \
+          --type bug \
+          --label "bmad:review-finding" \
+          --label "bmad:severity:{{severity}}"
+        </code>
+        <action>Store returned ID as {{beads_finding_id}}</action>
+
+        <action>Add blocking dependency so story cannot be closed until finding is resolved:</action>
+        <code>
+        # Story is blocked by review finding
+        _bmad/bin/bd dep add {{beads_story_id}} {{beads_finding_id}} --type blocks
+        </code>
+        <output>🔒 Created Beads review blocker: {{beads_finding_id}} → blocks {{beads_story_id}}</output>
+      </check>
     </check>
 
     <check if="user chooses 3">
@@ -166,19 +212,60 @@
     </check>
   </step>
 
-  <step n="5" goal="Update story status and sync sprint tracking">
-    <!-- Determine new status based on review outcome -->
-    <check if="all HIGH and MEDIUM issues fixed AND all ACs implemented">
-      <action>Set {{new_status}} = "done"</action>
-      <action>Update story Status field to "done"</action>
+  <step n="5" goal="Update story status and sync Beads + sprint tracking">
+    <!-- BEADS: Check for blocking review findings before marking done -->
+    <check if="{{beads_story_id}} is set">
+      <action>Query Beads for open blockers on this story:</action>
+      <code>_bmad/bin/bd dep list {{beads_story_id}} --type blocks --json</code>
+
+      <check if="open blocking issues exist (review findings not resolved)">
+        <output>🔒 Story has {{blocker_count}} unresolved review findings blocking completion.</output>
+        <action>Set {{new_status}} = "in-progress"</action>
+        <action>Cannot mark story as done until all blockers are closed.</action>
+      </check>
+
+      <check if="no blocking issues OR all blockers are closed">
+        <check if="all HIGH and MEDIUM issues fixed AND all ACs implemented">
+          <action>Set {{new_status}} = "done"</action>
+        </check>
+      </check>
     </check>
-    <check if="HIGH or MEDIUM issues remain OR ACs not fully implemented">
-      <action>Set {{new_status}} = "in-progress"</action>
-      <action>Update story Status field to "in-progress"</action>
+
+    <!-- Fallback if no Beads -->
+    <check if="{{beads_story_id}} is NOT set">
+      <check if="all HIGH and MEDIUM issues fixed AND all ACs implemented">
+        <action>Set {{new_status}} = "done"</action>
+        <action>Update story Status field to "done"</action>
+      </check>
+      <check if="HIGH or MEDIUM issues remain OR ACs not fully implemented">
+        <action>Set {{new_status}} = "in-progress"</action>
+        <action>Update story Status field to "in-progress"</action>
+      </check>
     </check>
+
+    <action>Update story Status field to {{new_status}}</action>
     <action>Save story file</action>
 
-    <!-- Determine sprint tracking status -->
+    <!-- BEADS: Update story status (PRIMARY) -->
+    <check if="{{beads_story_id}} is set">
+      <check if="{{new_status}} == 'done'">
+        <action>Update Beads story to done:</action>
+        <code>
+        _bmad/bin/bd label remove {{beads_story_id}} "bmad:stage:review"
+        _bmad/bin/bd label add {{beads_story_id}} "bmad:stage:done"
+        _bmad/bin/bd close {{beads_story_id}}
+        </code>
+        <output>✅ Beads story closed: {{beads_story_id}}</output>
+      </check>
+
+      <check if="{{new_status}} == 'in-progress'">
+        <action>Story remains in review stage with blockers</action>
+        <output>🔄 Beads story remains in review with {{blocker_count}} blocking findings</output>
+        <output>To view blockers: `_bmad/bin/bd dep list {{beads_story_id}} --type blocks`</output>
+      </check>
+    </check>
+
+    <!-- SPRINT-STATUS: Sync derived view (SECONDARY) -->
     <check if="{sprint_status} file exists">
       <action>Set {{current_sprint_status}} = "enabled"</action>
     </check>
@@ -186,7 +273,6 @@
       <action>Set {{current_sprint_status}} = "no-sprint-tracking"</action>
     </check>
 
-    <!-- Sync sprint-status.yaml when story status changes (only if sprint tracking enabled) -->
     <check if="{{current_sprint_status}} != 'no-sprint-tracking'">
       <action>Load the FULL file: {sprint_status}</action>
       <action>Find development_status key matching {{story_key}}</action>
@@ -215,10 +301,17 @@
     <output>**✅ Review Complete!**
 
       **Story Status:** {{new_status}}
+      **Beads Story ID:** {{beads_story_id}}
       **Issues Fixed:** {{fixed_count}}
       **Action Items Created:** {{action_count}}
+      **Blocking Review Findings:** {{blocker_count}}
 
-      {{#if new_status == "done"}}Code review complete!{{else}}Address the action items and continue development.{{/if}}
+      {{#if new_status == "done"}}
+      🎉 Code review complete! Story is done.
+      {{else}}
+      ⚠️ Address the action items and resolve blocking findings, then run dev-story to continue.
+      To view blockers: `_bmad/bin/bd dep list {{beads_story_id}} --type blocks`
+      {{/if}}
     </output>
   </step>
 

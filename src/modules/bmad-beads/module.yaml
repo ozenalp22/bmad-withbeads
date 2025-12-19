@@ -1,0 +1,5 @@
+code: bmad-beads
+name: "BMAD-Beads: Mandatory Beads Task Tracking"
+header: "Beads Integration Module"
+subheader: "Integrates Beads as the mandatory source of truth for task/todo generation, tracking, dependencies, and workflows across all BMAD agents."
+default_selected: false
