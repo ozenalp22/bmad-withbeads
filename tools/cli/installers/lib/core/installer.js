@@ -1151,6 +1151,34 @@ class Installer {
 
       spinner.succeed('Module-specific installers completed');
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // BEADS PROVISIONING (HARD REQUIREMENT)
+      // Beads CLI must be available for BMAD workflows. Provision it now.
+      // ═══════════════════════════════════════════════════════════════════════════
+      spinner.start('Provisioning Beads CLI...');
+
+      const { BeadsProvisioner } = require('../../../lib/beads-provisioner');
+      const beadsProvisioner = new BeadsProvisioner();
+
+      const beadsResult = await beadsProvisioner.provisionAndInitialize(projectDir, bmadDir, {
+        onProgress: (msg) => {
+          spinner.text = msg;
+        },
+        prefix: moduleConfigs.bmm?.project_name || path.basename(projectDir),
+      });
+
+      if (!beadsResult.success) {
+        spinner.fail('Beads CLI provisioning failed');
+        BeadsProvisioner.displayRemediationSteps(beadsResult.error);
+        throw new Error(`BMAD requires Beads CLI: ${beadsResult.error}`);
+      }
+
+      spinner.succeed(`Beads CLI ready: ${beadsResult.version}`);
+
+      // Store beads path in config for reference
+      config._beadsPath = beadsResult.bdPath;
+      // ═══════════════════════════════════════════════════════════════════════════
+
       // Note: Manifest files are already created by ManifestGenerator above
       // No need to create legacy manifest.csv anymore
 

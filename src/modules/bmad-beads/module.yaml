@@ -1,0 +1,7 @@
+code: bmad-beads
+name: "BMAD-Beads: Mandatory Beads Task Tracking"
+header: "Beads Integration Module"
+subheader: "Integrates Beads as the mandatory source of truth for task/todo generation, tracking, dependencies, and workflows across all BMAD agents."
+# REQUIRED: Beads CLI is provisioned unconditionally during installation and is required for core BMAD workflows
+# Core implementation workflows (dev-story, create-story, code-review) will halt if Beads is not available
+default_selected: true

@@ -764,10 +764,12 @@ class UI {
     // Add official modules (only non-custom ones)
     for (const mod of availableModules) {
       if (!mod.isCustom) {
+        const isMandatory = mod.id === 'bmad-beads';
         moduleChoices.push({
-          name: mod.name,
+          name: isMandatory ? `${mod.name} ${chalk.dim('(required)')}` : mod.name,
           value: mod.id,
-          checked: isNewInstallation ? mod.defaultSelected || false : installedModuleIds.has(mod.id),
+          checked: isMandatory ? true : isNewInstallation ? mod.defaultSelected || false : installedModuleIds.has(mod.id),
+          disabled: isMandatory, // Prevent deselection of mandatory modules
         });
       }
     }
@@ -781,17 +783,38 @@ class UI {
    * @returns {Array} Selected module IDs
    */
   async selectModules(moduleChoices, defaultSelections = []) {
+    // Mark bmad-beads as disabled (mandatory, cannot be deselected)
+    const processedChoices = moduleChoices.map((choice) => {
+      if (choice.value === 'bmad-beads') {
+        return {
+          ...choice,
+          disabled: true,
+          checked: true, // Always checked
+        };
+      }
+      return choice;
+    });
+
+    // Ensure bmad-beads is in default selections if not already present
+    const mandatoryModules = ['bmad-beads'];
+    const finalDefaultSelections = [...new Set([...defaultSelections, ...mandatoryModules])];
+
     const moduleAnswer = await inquirer.prompt([
       {
         type: 'checkbox',
         name: 'modules',
         message: 'Select modules to install:',
-        choices: moduleChoices,
-        default: defaultSelections,
+        choices: processedChoices,
+        default: finalDefaultSelections,
       },
     ]);
 
     const selected = moduleAnswer.modules || [];
+
+    // Always include bmad-beads even if somehow deselected
+    if (!selected.includes('bmad-beads')) {
+      selected.push('bmad-beads');
+    }
 
     return selected;
   }
